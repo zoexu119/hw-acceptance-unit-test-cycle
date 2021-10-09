@@ -8,6 +8,31 @@ class MoviesController < ApplicationController
 
   def index
     @movies = Movie.all
+    @all_ratings = Movie.all_ratings
+
+    @sort_by = params[:sort] || session[:sort]
+    @ratings_to_show = params[:ratings] || session[:ratings]
+
+    if !@ratings_to_show
+      @ratings_to_show = Hash.new
+      @all_ratings.each {|r| @ratings_to_show[r] = 1}
+    end
+
+    session[:sort], session[:ratings] = @sort_by, @ratings_to_show
+
+    if params[:sort] != session[:sort] || params[:ratings] != session[:ratings]
+      flash.keep
+      redirect_to movies_path :sort => @sort_by, :ratings => @ratings_to_show
+    end
+
+    @movies.where!(rating: @ratings_to_show.keys).order!(@sort_by)
+
+    case @sort_by
+        when 'title'
+          @title_header_class = 'hilite'
+        when 'release_date'
+          @release_date_header_class = 'hilite'
+        end
   end
 
   def new
@@ -22,6 +47,15 @@ class MoviesController < ApplicationController
 
   def edit
     @movie = Movie.find params[:id]
+  end
+
+  def directors
+    if params[:director].nil?
+      flash[:warning] = "Movie does not have a Director field"
+      redirect_to movies_path
+    else
+      @movies_director = Movie.with_director(params[:director])
+    end
   end
 
   def update
@@ -42,6 +76,6 @@ class MoviesController < ApplicationController
   # Making "internal" methods private is not required, but is a common practice.
   # This helps make clear which methods respond to requests, and which ones do not.
   def movie_params
-    params.require(:movie).permit(:title, :rating, :description, :release_date)
+    params.require(:movie).permit(:title, :rating, :director, :description, :release_date)
   end
 end
